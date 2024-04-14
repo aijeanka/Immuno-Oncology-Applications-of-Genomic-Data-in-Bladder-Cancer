@@ -1,0 +1,194 @@
+---
+title: "Final Project: Step 3"
+author: "Aizhan Uteubayeva (NetID:au198)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plyr)
+library(dplyr)
+library(reshape2)
+library(tibble)
+
+# install.packages("directlabels")
+```
+
+## Reading in the input data
+
+### Normal Tissue data
+
+```{r}
+# Read in Cibersort Normal output - rows are samples, columns are immune cell types
+NormalBladder = read.csv("CIBERSORTx_Normal_Results.csv",
+                         header=TRUE, row.names=1, sep="\t")
+
+# Displaying the data
+knitr::kable(NormalBladder[1:5, 1:4], caption = "Normal Bladder Mucosa")
+```
+
+### Tumor Tissue data for Surrounding Mucosa
+
+Fractions for 22 types and three columns with additional statistics
+
+```{r}
+# Read in cibersort Tumor output - rows are samples, columns are immune cell types
+TumorBladder = read.csv("CIBERSORTx_Tumour_Results.csv",
+                         header=TRUE, row.names=1, sep="\t")
+knitr::kable(TumorBladder[1:5, 1:4], caption = "Colon cancer Tumor")
+```
+
+### Cleaning the values
+
+```{r}
+NormalCleaned <- NormalBladder[, -which(names(NormalBladder) %in% c("Correlation", "RMSE","P.value"))]
+TumorCleaned <- TumorBladder[, -which(names(TumorBladder) %in% c("Correlation", "RMSE","P.value"))]
+```
+
+## Top five in normal cells
+
+```{r}
+normal_means <- colMeans(NormalCleaned)
+normal_means_df <- data.frame(normal_means)
+normal_means <- tibble::rownames_to_column(normal_means_df, "VALUE")
+
+
+top_normal <- normal_means[order(normal_means_df$normal_means, decreasing = TRUE),]
+
+top_5_normal <- top_normal[1:5, ]
+knitr::kable(top_5_normal, caption = "Top five cells in Normal Bladder Surrounding Mucosa")
+```
+
+## Top five in Surrounding Mucosa
+
+```{r}
+tumor_means <- colMeans(TumorCleaned)
+tumor_means_df <- data.frame(tumor_means)
+
+tumor_means <- tibble::rownames_to_column(tumor_means_df, "VALUE")
+top_tumor <- tumor_means[order(tumor_means_df$tumor_means, decreasing = TRUE),]
+
+top_5_tumor <- top_tumor[1:5, ]
+knitr::kable(top_5_tumor, caption = "Top five cells in Pre-tumor Bladder Surrounding Mucosa")
+```
+
+## Cibersort
+
+#### Creating cibersort data objects
+```{r}
+cibersortDataTumor <- TumorBladder
+cibersortDataNormal <- NormalBladder
+```
+### Plotting the Average Bar Graph
+```{r}
+source("functionAvgBarPlot.R")
+
+#calling function for CRC Tumor
+objectPlotTumor <- functionAvgBarPlot(
+    cibersortData = cibersortDataTumor, #set Cibersort Data ojbect for plotting
+    outputFileName = "2023_Ciber_CRCTumor_AvgBarPlot", #set output file name
+    outputFolderName = "output", #Set output folder name
+    title1 = "CRC Tumor  Average Bar Plot", #Change Title 
+    num1 =  22)  #Number of cell types to plot
+
+#insert object into the Rmarkdown document
+objectPlotTumor
+
+### calling function for CRC Tumor No-relapse
+objectPlotNormal <- functionAvgBarPlot(
+    cibersortData = cibersortDataNormal, #set Cibersort Data ojbect for plotting
+    outputFileName = "2023_Ciber_CRCNormal_AvgBarPlot", 
+    #set output file name
+    outputFolderName = "output", #Set output folder name
+    title1 = "CRC Normal Average Bar Plot", 
+    num1 = 22) 
+
+#insert object into the Rmarkdown
+objectPlotNormal
+
+#Build HTML / PDF
+```
+
+### Plotting Stacked Bar Graph
+```{r}
+source("functionStackedBarPlot.R")
+
+#calling function for CRC Tumor 
+objectPlotT <- functionStackedBarPlot(
+    cibersortData = cibersortDataTumor, #set Cibersort Data ojbect for plotting
+    outputFileName = "2022_Ciber_CRCTumor_StackedBarPlot", #set output file name
+    outputFolderName = "output", #Set output folder name
+    title1 = "CRC Tumor Stacked Bar Plot") #Change Title
+
+#insert object into the Rmarkdown
+objectPlotT
+
+### calling function for CRC normal
+objectPlotN <- functionStackedBarPlot(
+    cibersortData = cibersortDataNormal, #set Cibersort Data ojbect for plotting
+    outputFileName = "2022_Ciber_CRCNormal_StackedBarPlot", 
+    #set output file name
+    outputFolderName = "output", #Set output folder name
+    title1 = "CRC Normal Stacked Bar Plot") #Change Title
+
+#insert object into the Rmarkdown
+objectPlotN
+
+#Build HTML / PDF
+```
+
+#### Calculating means for each group
+```{r}
+# Function Definition
+funcMeans <- function(cibersortData) {
+    
+    data3 = as.data.frame(cibersortData[,1:22]) #select only 22 cell type data
+    data1 = as.data.frame(t(cibersortData[,1:22]))
+    
+    colnames(data1) = row.names(cibersortData)
+    data1$row <- row.names(data1)
+    
+    #melt and reshape data 
+    melted <- reshape2::melt(data1, id.vars = "row")
+    melted$row <-factor(melted$row, levels=c(colnames(cibersortData)))
+    
+    #calculate means
+    means <- plyr::ddply(melted, c("row"), summarise, mean=mean(value))
+    
+    data2a <- reshape2::melt(means, id.vars = "row")
+
+    return(data2a)
+}
+
+#calling function to calclulate means - returns a data frame with 22 rows and 3 columns
+tumorMeans <- funcMeans(cibersortDataTumor)
+normalMeans <- funcMeans(cibersortDataNormal)
+
+#The First column is the cell type, Third column is the mean value
+colnames(tumorMeans) 
+head(tumorMeans)
+```
+
+#### cbind all means value (third column) from each object
+
+```{r}
+#IMPORTANT NOTE - When doing cbind, order them such that the baseline group is on the left most column
+meansAll = cbind(normalMeans$value, tumorMeans$value)
+row.names(meansAll) <- tumorMeans$row #Set row names - immune cell types
+colnames(meansAll) <- c("Adjacent Normal", "Tumor")
+```
+
+### Plotting Line Graph
+
+```{r}
+source("functionLineGraph.R")
+
+objectLineGraph <- functionLineGraph(meansAll, 
+                                     outputFileName = "2023_Ciber_LinePlot", 
+                                     outputFolderName = "output") #Set output folder name
+
+#insert object into the Rmarkdown
+objectLineGraph
+
+#Build HTML / PDF
+```

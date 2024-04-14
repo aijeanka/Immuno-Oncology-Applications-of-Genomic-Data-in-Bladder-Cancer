@@ -1,0 +1,78 @@
+---
+title: "Average Bar Graph using Cibersort Data: Bladder Cancer"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("plyr")
+#install.packages("reshape2")
+library(dplyr)
+library(reshape2)
+```
+
+# Plot Average Bar Graph using Cibersort Data - R Markdown
+
+* Read in output from Cibersort online (tumor samples )
+* Read in output from Cibersort online (normal samples )
+* Create one cibersort object for each group of interest. 
+* For each group of interest
+    + Plot average bar for each group
+
+## Read in cibersort output from online web - tumor samples
+```{r}
+# Read in cibersort output - rows are samples, columns are immune cell types
+inputBLCAtumor = read.csv("input/CIBERSORTx_Tumor_Results.txt",
+                         header=TRUE, row.names=1, sep="\t")
+knitr::kable(inputBLCAtumor[1:5, 1:4], caption = "Bladder Cancer Tumor")
+```
+
+## Read in cibersort output from online web - normal samples
+```{r}
+# Read in cibersort output - rows are samples, columns are immune cell types
+inputBLCAnormal = read.csv("input/CIBERSORTx_Normal_Results.txt",
+                         header=TRUE, row.names=1, sep="\t")
+knitr::kable(inputBLCAnormal[1:5, 1:4], caption = "Bladder cancer Normal")
+```
+
+
+## Create cibersort data objects
+```{r}
+cibersortDataTumor <- inputBLCAtumor
+cibersortDataNormal <- inputBLCAnormal
+```
+
+
+## Call function for each group to plot average bar graph
+Output will be a set of graphs in the "outputFolderName" folder
+
+```{r}
+source("functionAvgBarPlot.R")
+
+#calling function for BLCA Tumor
+objectPlotTumor <- functionAvgBarPlot(
+    cibersortData = cibersortDataTumor, #set Cibersort Data ojbect for plotting
+    outputFileName = "2023_Ciber_BLCATumor_AvgBarPlot", #set output file name
+    outputFolderName = "output", #Set output folder name
+    title1 = "BLCA Tumor  Average Bar Plot", #Change Title 
+    num1 =  22)  #Number of cell types to plot
+
+#insert object into the Rmarkdown document
+objectPlotTumor
+
+### calling function for BLCA Tumor No-relapse
+objectPlotNormal <- functionAvgBarPlot(
+    cibersortData = cibersortDataNormal, #set Cibersort Data ojbect for plotting
+    outputFileName = "2023_Ciber_BLCANormal_AvgBarPlot", 
+    #set output file name
+    outputFolderName = "output", #Set output folder name
+    title1 = "BLCA Normal Average Bar Plot", 
+    num1 = 22) 
+
+#insert object into the Rmarkdown
+objectPlotNormal
+
+#Build HTML / PDF
+```

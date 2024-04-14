@@ -1,0 +1,103 @@
+---
+title: "03-CibersortLineGraph"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plyr)
+library(dplyr)
+library(reshape2)
+#install.packages("directlabels")
+```
+
+## Cibersort based Line Graph - R Markdown
+
+* Read in output from Cibersort online (tumor samples )
+* Read in output from Cibersort online (normal samples )
+* Create one cibersort object for each group of interest. 
+* For each group of interest
+    + Call function which calculates the means of each immune cell type
+    + Cbind all means values
+*  Plot a line graph of the mean values so you can see how the mean value changes across the groups.
+## Read in cibersort output from online web - tumor samples
+```{r}
+# Read in cibersort output - rows are samples, columns are immune cell types
+inputBLCAtumor = read.csv("input/CIBERSORTx_Tumor_Results.txt",
+                         header=TRUE, row.names=1, sep="\t")
+knitr::kable(inputBLCAtumor[1:5, 1:4], caption = "Bladder cancer Tumor")
+```
+
+## Read in cibersort output from online web - normal samples
+```{r}
+# Read in cibersort output - rows are samples, columns are immune cell types
+inputBLCAnormal = read.csv("input/CIBERSORTx_Normal_Results.txt",
+                         header=TRUE, row.names=1, sep="\t")
+knitr::kable(inputBLCAnormal[1:5, 1:4], caption = "Bladder cancer Normal")
+```
+
+
+## Create cibersort data objects
+```{r}
+cibersortDataTumor <- inputBLCAtumor
+cibersortDataNormal <- inputBLCAnormal
+```
+
+## For each group of interest , call function to calculate means
+```{r}
+# Function Definition
+funcMeans <- function(cibersortData) {
+    
+    data3 = as.data.frame(cibersortData[,1:22]) #select only 22 cell type data
+    data1 = as.data.frame(t(cibersortData[,1:22]))
+    
+    colnames(data1) = row.names(cibersortData)
+    data1$row <- row.names(data1)
+    
+    #melt and reshape data 
+    melted <- reshape2::melt(data1, id.vars = "row")
+    melted$row <-factor(melted$row, levels=c(colnames(cibersortData)))
+    
+    #calculate means
+    means <- plyr::ddply(melted, c("row"), summarise, mean=mean(value))
+    
+    data2a <- reshape2::melt(means, id.vars = "row")
+
+    return(data2a)
+}
+
+#calling function to calclulate means - returns a data frame with 22 rows and 3 columns
+tumorMeans <- funcMeans(cibersortDataTumor)
+normalMeans <- funcMeans(cibersortDataNormal)
+
+#The First column is the cell type, Third column is the mean value
+colnames(tumorMeans) 
+head(tumorMeans)
+```
+
+## cbind all means value (third column) from each object 
+IMPORTANT NOTE - When doing cbind, order them such that the baseline group is on the left most column
+```{r}
+#IMPORTANT NOTE - When doing cbind, order them such that the baseline group is on the left most column
+meansAll = cbind(normalMeans$value, tumorMeans$value)
+row.names(meansAll) <- tumorMeans$row #Set row names - immune cell types
+colnames(meansAll) <- c("Adjacent Normal", "Tumor")
+```
+
+## Call function to Plot Line Graph. 
+Output will be a set of graphs in the "outputFolderName" folder
+
+```{r}
+source("functionLineGraph.R")
+
+objectLineGraph <- functionLineGraph(meansAll, 
+                                     outputFileName = "2BLCA_Ciber_LinePlot", 
+                                     outputFolderName = "output") #Set output folder name
+
+#insert object into the Rmarkdown
+objectLineGraph
+
+#Build HTML / PDF
+```
